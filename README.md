@@ -21,12 +21,12 @@ NanoLeaf library for LUA/gamesense
         NanoLeaf.color(255, 255, 255) --Sets color to white.
 
     Brightness:
-        NanoLeaf.brightness()  --Gets current brightness
+        NanoLeaf.brightness()  --Gets current brightness.
         NanoLeaf.brightness(50)  --Sets brightness to 50%.
 
     Prints:
         NanoLeaf.print('Hello World!') --[NanoLeaf] Hello World! With green prefix.
         NanoLeaf.print('Hello World!', 1) --[NanoLeaf] Hello World! With green prefix.
-        NanoLeaf.print('Hello World!', 2) --[NanoLeaf] Hello World! With red prefix .
-        NanoLeaf.print('Hello World!', 3) --[NanoLeaf] Hello World! With blue prefix
+        NanoLeaf.print('Hello World!', 2) --[NanoLeaf] Hello World! With red prefix.
+        NanoLeaf.print('Hello World!', 3) --[NanoLeaf] Hello World! With blue prefix.
 ---]]
