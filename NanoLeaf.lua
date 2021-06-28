@@ -1,86 +1,23 @@
---[[ 
-    API USAGE:
+local http = require('gamesense/http')
 
+local NL = {} -- The main table
 
-    main(auth_token, local_ipv4) --Setup LINK
-
-    Effects:
-        NanoLeaf.effect() --Gets all effect and current selected one.
-        NanoLeaf.effect('Effect Name') --Sets lights to selected effect.
-
-    Switch:
-        NanoLeaf.switch() --Gets information if light is on or off.
-        NanoLeaf.switch(true) --Turns lights on.
-        NanoLeaf.switch(false) --Turns lights off.
-
-    Color:
-        NanoLeaf.color(255, 255, 255, 50) --Sets color to white with 50% brightness.
-        NanoLeaf.color(255, 255, 255) --Sets color to white.
-
-    Brightness:
-        NanoLeaf.brightness()  --Gets current brightness
-        NanoLeaf.brightness(50)  --Sets brightness to 50%.
-
-    Prints:
-        NanoLeaf.print('Hello World!') --[NanoLeaf] Hello World! With green prefix.
-        NanoLeaf.print('Hello World!', 1) --[NanoLeaf] Hello World! With green prefix.
-        NanoLeaf.print('Hello World!', 2) --[NanoLeaf] Hello World! With red prefix .
-        NanoLeaf.print('Hello World!', 3) --[NanoLeaf] Hello World! With blue prefix
----]]
-
-
-local http = require("gamesense/http")
-
-
-
-function print_color(text)
-    client.color_log(0, 255, 0, '[NanoLeaf] \0') 
+function NL.print(text, status)
+    if status == 3 then
+        client.color_log(0, 0, 255, '[NanoLeaf] \0') --blue for auth token
+    elseif status == 2 then
+        client.color_log(255, 0, 0, '[NanoLeaf] \0')  --red for error
+    else
+        client.color_log(0, 255, 0, '[NanoLeaf] \0')  --green for the rest
+    end
     return client.color_log(255, 255, 255, text)
 end
 
---Request new auth key via IPV4 adress
-function Auth(private_ipv4)
-    http.post('http://' .. private_ipv4 .. ':16021/api/v1/new', { headers = { ["Content-Type"] = "application/json" }}, function(s, r)
-        print_color('Sending AUTH request')
-        if r.status == 403 then
-            return client.error_log('[NanoLeaf] Not successful wait for blinking lights and retry.')
-        elseif r.status == 200 then
-            auth = json.parse(r.body)
 
-            database.write('setup_nanoleaf', true)
-            print_color('AUTH request successful')
-            print_color('STORING YOUR AUTH_TOKEN: ' .. auth.auth_token)
-            print_color('STORING YOUR PRIVATE_IPV4: ' .. tostring(private_ipv4))
-            database.write('AUTH_TOKEN_TEST', auth.auth_token)
-            database.write('PRIVATE_IPV4_TEST', ipv4)
-        else
-            client.error_log('Unknown error.')
-        end
-    end)
+local link
+function NL.main(main_auth_token, main_ip_adress)
+    link = 'http://' .. main_ip_adress .. ':16021/api/v1/' .. main_auth_token
 end
-
---Check if setup has been completed
-if database.read('setup_nanoleaf') == not nil then
-    ui.new_button('LUA', 'a', 'Nanoleaf Setup', function()
-        http.get('https://my.nanoleaf.me/api/v1/devices/discover', function(s, response)
-            if not response.status == 304 then return end
-            local json = json.parse(response.body:sub(2, -2))
-            print_color('Grabbing IPV4 address')
-            Auth(json.private_ipv4)
-        end)
-        --Show all menu elements.
-    end)
-    --do return end --kill rest of the code because the setup is not completed yet.
-end
-
-local color_picker = ui.new_color_picker('LUA', 'a', 'NanoLeaf Color Picker', 255 ,0 ,255 ,255)
-local on_off = ui.new_checkbox('LUA', 'a', 'NanoLeaf Main')
-local brightness = ui.new_slider('LUA', 'a', 'NanoLeaf Max Brightness', 0, 100, 50)
-local miss_flash = ui.new_checkbox('LUA', 'a', 'Hit/Miss color flash')
-local return_color = ui.new_checkbox('LUA', 'a', 'Return to selected color')
-local health_lights = ui.new_checkbox('LUA', 'a', 'Health based lights')
-local flash_lights = ui.new_checkbox('LUA', 'a', 'Turn lights on flashed')
-
 
 
 function rgb2hsv(r,g,b)
@@ -114,172 +51,194 @@ function rgb2hsv(r,g,b)
 end
 
 
-local ipv4
-local link
-local listbox
-local token = 'fobZRplVuZdPMR1IGg8ZjhoTUEb5IZRk'
-local main_link = 'http://192.168.178.241:16021/api/v1/fobZRplVuZdPMR1IGg8ZjhoTUEb5IZRk'
 
 
-local effect_list = {}
-
-http.get(main_link .. '/effects/effectsList', function(s, response)
-    local list = response.body:sub(2, -2)
-    for match in (list:gsub('"', "")..","):gmatch("(.-)"..",") do
-        table.insert(effect_list, match);
-    end
-    listbox = ui.new_listbox('LUA', 'a', 'Effect list', effect_list)
-    local effect_button = ui.new_button('LUA', 'a', 'NanoLeaf set effect', function()
-        NanoLeaf(effect_list[ui.get(listbox) + 1])
-    end)
-end)
-
-
-
-
-function NanoLeaf(r,g,b,a)
-    local arguments = {r,g,b,a}
-    if a == nil or a > 100 then a = 100 end
-    if #arguments < 2 then
-        datatype = r
-    end
-
-    if #arguments == 1 and type(datatype) == 'string' then 
-        link = main_link .. '/effects'
-        data = { select= datatype}
-    elseif #arguments == 1 and type(datatype) == 'boolean' then
-        link = main_link .. '/state'
-        data = { on = { value = datatype } } --on/off
-    elseif #arguments == 1 and type(datatype) == 'number' then
-        link = main_link .. '/state'
-        data = { brightness = { value = datatype, duration = 0 }}
-    elseif #arguments == 4 then
-        local hsv = rgb2hsv(r,g,b)
-        data = { 
-            hue = { value = math.floor(hsv["hue"]) }, 
-            sat = { value = math.floor(hsv["saturation"]) * 100 }, 
-            brightness = { value = a,  duration = 0 } 
-        }
-    end
-
-    http.put(link, { headers = { ["Content-Type"] = "application/json" }, body = json.stringify(data) }, function(s, response)
-        if not response.status == 404 then 
-            return client.error_log('Bad request:', json.stringify(data)  )
+function Authenticate(private_ipv4)
+    http.post('http://' .. private_ipv4 .. ':16021/api/v1/new', { headers = { ['Content-Type'] = 'application/json' }}, function(s, response)
+        if response.status == 403 then
+            return NL.print('Error: not successful, wait for blinking lights', 2)
+        elseif response.status == 200 then
+            local json = json.parse(response.body)
+            NL.print(('AUTH TOKEN: ' .. json.auth_token .. ' IP: ' .. private_ipv4), 3)
+        else
+            NL.print('Error: Unknown error.' .. response.status, 2)
         end
     end)
 end
 
 
+function NL.auth()
+    http.get('https://my.nanoleaf.me/api/v1/devices/discover', function(s, response)
+        if response.status == 200 then 
+            local ip_adress = json.parse(response.body:sub(2, -2))
+            Authenticate(ip_adress.private_ipv4)
+        elseif response.status == 404 then
+            local error = json.parse(response.body:sub(2, -2))
+            NL.print('Error: ' .. error.status .. ' message: ' .. error.name, 2)
+        end
+    end)
+end
 
 
+function NL.color(r,g,b,alpha)
+    local arguments = {r,g,b,alpha}
 
-
-local button = ui.new_button('LUA', 'a', 'NanoLeaf Switch/Color', function()
-    local r,g,b = ui.get(color_picker)
-    if not ui.get(on_off) then
-        NanoLeaf(false)
-    else
-        NanoLeaf(true)
-        NanoLeaf(r, g, b, ui.get(brightness))
-    end
-end)
-
-
-
-local isFlashed
-local flashtime
-
-client.set_event_callback("paint", function ()
-    if ui.get(flash_lights) then
-        flashtime = entity.get_prop(entity.get_local_player(), "m_flFlashDuration")
-        if flashtime > 0 and not isFlashed then
-            isFlashed = true
-            NanoLeaf(255, 255, 255, 100)
-            client.delay_call(entity.get_prop(entity.get_local_player(), "m_flFlashDuration") / 1.75, function()
-                NanoLeaf(false)
-            end)
-        elseif flashtime == 0 and isFlashed then
-            isFlashed = not isFlashed
+    --option #1
+    local validtypes = {
+        type(r),
+        type(g),
+        type(b),
+        type(alpha)
+    }
+    for i=1, #arguments do
+        if validtypes[i] ~= "number" then
+            return NL.print('Error: argument: ' .. i .. ' can only be a number', 2)
         end
     end
-end)
 
+    --[[ 
+        option #2
 
-         
-client.set_event_callback('aim_hit', function()
-    local r,g,b = ui.get(color_picker)
-    if ui.get(on_off) and ui.get(miss_flash) then
-        NanoLeaf(0, 255 , 0, ui.get(brightness))
-        client.delay_call(1, function()
-            if ui.get(return_color) then
-                NanoLeaf(r, g , b, ui.get(brightness))
-            else
-                NanoLeaf(false)
-            end  
-        end)
-    end
-end)
-
-client.set_event_callback('aim_miss', function(e)
-    local r,g,b = ui.get(color_picker)
-    if ui.get(on_off) and ui.get(miss_flash) then
-        NanoLeaf(255, 0 , 0, ui.get(brightness))
-        client.delay_call(1, function()
-            if ui.get(return_color) then
-                NanoLeaf(r, g , b, ui.get(brightness))
-            else
-                NanoLeaf(false)
-            end      
-        end)
-    end
-end)
-
-
-client.set_event_callback("player_hurt", function(e)
-    local health = entity.get_prop(entity.get_local_player(), 'm_iHealth')
-    if client.userid_to_entindex(e.userid) == entity.get_local_player() and ui.get(health_lights) and ui.get(on_off) then
-        if (health > 80) then
-            NanoLeaf(0, 255, 0, ui.get(brightness))
-        elseif (health > 60) then
-            NanoLeaf(154, 255, 0, ui.get(brightness))
-        elseif (health > 40) then
-            NanoLeaf(251, 101, 0, ui.get(brightness))
-        elseif (health > 30) then
-            NanoLeaf(185, 60, 0, ui.get(brightness))
+        if type(r) == 'number' and type(g) == 'number' and type(b) == 'number' and type(alpha) == 'number' then
         else
-            NanoLeaf(255, 0, 0, ui.get(brightness))
+            eturn NL.print('Error: argument: can only be a number', 2)
         end
+    ]]
+
+
+    if #arguments == 3 or #arguments == 4 and alpha > 100 then
+        alpha = 100
+    elseif #arguments < 3 then
+        return NL.print('Error: you need atleast 3 RGB values', 2)
     end
-end)
-client.set_event_callback("round_prestart", function()
-    if ui.get(on_off) and ui.get(health_lights) then
-        NanoLeaf(0, 255, 0, ui.get(brightness))
+
+    local hsv = rgb2hsv(r,g,b)
+    data = { 
+        hue = { value = math.floor(hsv['hue']) }, 
+        sat = { value = math.floor(hsv['saturation']) * 100 }, 
+        brightness = { value = alpha,  duration = 0 } 
+    }
+
+    if link == nil then
+        return NL.print('Error: Auth not defined yet.', 2)
     end
-end)
+
+    http.put(link .. '/state', { headers = { ['Content-Type'] = 'application/json' }, body = json.stringify(data) }, function(s, response)
+        if not response.status == 204 then 
+            return NL.print('Error: '.. json.stringify(data), 2)
+        end
+    end)
+end
 
 
+function NL.switch(boolean)
+    if link == nil then
+        return NL.print('Error: Auth not defined yet.', 2)
+    end
+
+	if type(boolean) ~= "boolean" and not boolean == nil then
+		return NL.print('Error: switch must be a boolean', 2)
+	end
 
 
-client.set_event_callback('paint_ui', function()
-
-
-    if ui.get(miss_flash) then
-        ui.set_visible(return_color, true)
+    if boolean == nil then
+        http.get(link .. '/state/on', { headers = { ['Content-Type'] = 'application/json' } }, function(s, response)
+            if not response.status == 204 then 
+                return NL.print('Error: ' .. response.status, 2)
+            else
+                return NL.print(response.body)
+            end
+        end)
     else
-        ui.set_visible(return_color, false)
+        http.put(link .. '/state', { headers = { ['Content-Type'] = 'application/json' }, body = json.stringify({on = { value = boolean }})}, function(s, response) 
+            if not response.status == 204 then 
+                return NL.print('Error: ' .. response.status, 2)
+            end
+        end)
+    end
+end
+
+
+
+function NL.brightness(number)
+    if link == nil then
+        return NL.print('Error: Auth not defined yet.', 2)
     end
 
-    if ui.get(on_off) then
-        ui.set_visible(color_picker, true)
-        ui.set_visible(brightness, true)
-        ui.set_visible(health_lights, true)
-        ui.set_visible(miss_flash, true)
-        ui.set_visible(flash_lights, true)
+	if type(number) ~= "number" and not number == nil then
+        return NL.print('Error: brightness must be a number', 2)
     else
-        ui.set_visible(color_picker, false)
-        ui.set_visible(brightness, false)
-        ui.set_visible(health_lights, false)
-        ui.set_visible(miss_flash, false)
-        ui.set_visible(flash_lights, false)
+        if not number == nil and number > 100 then number = 100 end
     end
-end)
+
+    if number == nil then
+        http.get(link .. '/state/brightness', { headers = { ['Content-Type'] = 'application/json' } }, function(s, response)
+            if not response.status == 204 then 
+                return NL.print('Error: ' .. response.status, 2)
+            else
+                return NL.print(response.body)
+            end
+        end)
+    else
+        http.put(link .. '/state', { headers = { ['Content-Type'] = 'application/json' }, body = json.stringify({ brightness = { value = number,  duration = 0 } }) }, function(s, response)
+            if not response.status == 204 then 
+                return NL.print('Error: ' .. response.status, 2)
+            end
+        end)
+    end
+end
+
+
+function NL.effect(string)
+    if link == nil then
+        return NL.print('Error: Auth not defined yet.', 2)
+    end
+
+	if type(string) ~= "string" and not string == nil then
+        return NL.print('Error: effect must be a string', 2)
+    end
+
+    if string == nil then
+        http.get(link .. '/effects', { headers = { ['Content-Type'] = 'application/json' } }, function(s, response) 
+            if not response.status == 204 then 
+                return NL.print('Error: ' .. response.status, 2)
+            else
+                return NL.print(response.body)
+            end
+        end)
+    else
+        http.put(link .. '/effects', { headers = { ['Content-Type'] = 'application/json' }, body = json.stringify({select = string }) }, function(s, response) 
+            if not response.status == 204 then 
+                return NL.print('Error: ' .. response.status, 2)
+            end
+        end)
+    end
+end
+
+
+function NL.remove(string)
+    if link == nil then
+        return NL.print('Error: Auth not defined yet.', 2)
+    end
+
+	if type(string) ~= "string" and not string == nil then
+        return NL.print('Error: effect must be a string', 2)
+    end
+
+    if string == nil then
+        delete_link = link
+    else
+        delete_link = string.format('%s%s', link:sub(0, -33), string)
+    end
+
+    http.delete(delete_link, function(s, response) 
+        if not response.status == 204 then 
+            return NL.print('Error: ' .. response.status, 2)
+        else
+            return NL.print('AUTH Token has been deleted', 2)
+        end
+    end)
+end
+
+
+return NL
