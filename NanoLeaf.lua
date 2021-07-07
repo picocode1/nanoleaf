@@ -165,7 +165,7 @@ function NL.brightness(number)
         return NL.print('Error: Auth not defined yet.', 2)
     end
 
-	if type(number) ~= "number" and not number == nil then
+    if type(number) ~= "number" and not number == nil then
         return NL.print('Error: brightness must be a number', 2)
     else
         if not number == nil and number > 100 then number = 100 end
@@ -194,7 +194,7 @@ function NL.effect(string)
         return NL.print('Error: Auth not defined yet.', 2)
     end
 
-	if type(string) ~= "string" and not string == nil then
+    if type(string) ~= "string" and not string == nil then
         return NL.print('Error: effect must be a string', 2)
     end
 
@@ -221,7 +221,7 @@ function NL.remove(string)
         return NL.print('Error: Auth not defined yet.', 2)
     end
 
-	if type(string) ~= "string" and not string == nil then
+    if type(string) ~= "string" and not string == nil then
         return NL.print('Error: effect must be a string', 2)
     end
 
