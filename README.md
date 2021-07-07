@@ -1,7 +1,7 @@
 # nanoleaf
 NanoLeaf library for LUA/gamesense
 
---[[ 
+
     API USAGE:
 
 
@@ -29,4 +29,3 @@ NanoLeaf library for LUA/gamesense
         NanoLeaf.print('Hello World!', 1) --[NanoLeaf] Hello World! With green prefix.
         NanoLeaf.print('Hello World!', 2) --[NanoLeaf] Hello World! With red prefix.
         NanoLeaf.print('Hello World!', 3) --[NanoLeaf] Hello World! With blue prefix.
----]]
